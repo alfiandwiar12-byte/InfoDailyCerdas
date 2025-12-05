@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>InfoDailyCerdas — Portal Berita</title>
+  <meta name="description" content="Portal berita otomatis dengan NewsAPI + admin panel lokal." />
+  <style>
+    :root{--accent:#ff6b00;--bg:#f6f7fb;--card:#fff;--text:#0b1220}
+    :root.dark{--bg:#0b1020;--card:#0b1220;--text:#e6eef8}
+    *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+    header{padding:22px;text-align:center;background:linear-gradient(90deg,var(--card),#f3f6fa);box-shadow:0 6px 20px rgba(2,6,23,0.06)}
+    header h1{margin:0;font-size:34px}
+    header p{margin:6px 0 0;color:#556}
+    nav{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;padding:12px;background:var(--card);margin:14px 18px;border-radius:10px}
+    nav a{padding:8px 12px;border-radius:8px;text-decoration:none;color:var(--text);font-weight:600}
+    .wrap{max-width:1100px;margin:20px auto;padding:0 16px}
+    .grid{display:grid;grid-template-columns:1fr 340px;gap:20px}
+    .card{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 6px 18px rgba(8,22,48,0.06)}
+    .slider{height:320px;border-radius:12px;overflow:hidden;position:relative}
+    .slide{position:absolute;inset:0;opacity:0;transition:.5s}
+    .slide.active{opacity:1}
+    .slide img{width:100%;height:100%;object-fit:cover}
+    .slide .caption{position:absolute;left:18px;bottom:18px;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.6));padding:12px;border-radius:8px;max-width:70%}
+    .latest-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .latest-card img{width:100%;height:120px;object-fit:cover;border-radius:8px}
+    .news-list{display:flex;flex-direction:column;gap:12px}
+    .news-item{display:flex;gap:12px;align-items:flex-start}
+    .news-item img{width:220px;height:140px;object-fit:cover;border-radius:8px}
+    .news-item .meta{font-size:13px;color:#667}
+    .btn{display:inline-block;padding:8px 12px;border-radius:8px;background:var(--accent);color:#fff;text-decoration:none;font-weight:700}
+    .ad{background:#fff4e6;border:1px dashed #e6c07a;padding:12px;text-align:center;border-radius:10px}
+    aside .widget{margin-bottom:14px}
+    /* article detail */
+    #article-detail{display:none}
+    #article-detail .hero{margin-bottom:12px}
+    /* admin panel */
+    #admin-panel{display:none;position:fixed;right:20px;bottom:20px;z-index:40}
+    #admin-panel .admin-btn{padding:10px 14px;border-radius:10px;background:#0b84ff;color:#fff;border:none;cursor:pointer}
+    .admin-modal{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center}
+    .admin-form{background:var(--card);padding:16px;border-radius:12px;width:680px;max-width:94%;}
+    .form-row{display:flex;gap:8px;margin-bottom:8px}
+    .form-row input,.form-row textarea,select{width:100%;padding:10px;border-radius:8px;border:1px solid #ddd}
+    /* responsive */
+    @media(max-width:980px){.grid{grid-template-columns:1fr}.news-item img{width:180px;height:110px}}
+    @media(max-width:600px){header h1{font-size:24px}.latest-grid{grid-template-columns:1fr}.news-item{flex-direction:column}.news-item img{width:100%;height:200px}}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>InfoDailyCerdas</h1>
+    <p>Berita Harian · Review · Jualan · Jasa</p>
+  </header>
+
+  <nav id="main-nav">
+    <a href="#" data-cat="all">Home</a>
+    <a href="#" data-cat="nasional">Nasional</a>
+    <a href="#" data-cat="internasional">Internasional</a>
+    <a href="#" data-cat="ekonomi">Ekonomi</a>
+    <a href="#" data-cat="teknologi">Teknologi</a>
+    <a href="#" data-cat="hiburan">Hiburan</a>
+    <a href="#" data-cat="olahraga">Olahraga</a>
+  </nav>
+
+  <div class="wrap">
+    <div class="grid">
+      <main>
+        <section class="card">
+          <div id="slider" class="slider"></div>
+        </section>
+
+        <section class="card" style="margin-top:14px">
+          <h3>Berita Terbaru</h3>
+          <div id="latest" class="latest-grid"></div>
+        </section>
+
+        <section id="list-section" class="card" style="margin-top:14px">
+          <h3>Semua Berita</h3>
+          <div id="news-list" class="news-list"></div>
+        </section>
+
+        <!-- Article detail single-page view -->
+        <section id="article-detail" class="card">
+          <button id="backToList" style="margin-bottom:10px" class="btn">← Kembali</button>
+          <h2 id="detail-title"></h2>
+          <p id="detail-meta" class="meta"></p>
+          <div class="hero"><img id="detail-img" src="" style="width:100%;height:360px;object-fit:cover;border-radius:8px"></div>
+          <div id="detail-content"></div>
+          <div class="ad" style="margin-top:12px">Iklan dalam artikel (temp)</div>
+        </section>
+      </main>
+
+      <aside>
+        <div class="card widget">
+          <h4>Langganan Newsletter</h4>
+          <input id="email" placeholder="Email kamu" style="padding:10px;border-radius:8px;border:1px solid #ddd;width:100%"><button id="subBtn" class="btn" style="margin-top:8px">Langganan</button>
+        </div>
+
+        <div class="card widget">
+          <h4>Iklan</h4>
+          <div class="ad">Slot Iklan Sidebar (temp)</div>
+        </div>
+
+        <div class="card widget">
+          <h4>Trending</h4>
+          <ul id="trending"></ul>
+        </div>
+
+        <div class="card widget">
+          <h4>Admin</h4>
+          <p>Tambah artikel (disimpan lokal)</p>
+          <button id="openAdmin" class="btn">Buka Panel Admin</button>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Admin modal -->
+  <div id="admin-modal" style="display:none">
+    <div class="admin-modal">
+      <div class="admin-form">
+        <h3>Tambah Artikel Baru (Local)</h3>
+        <div class="form-row"><input id="a-title" placeholder="Judul"></div>
+        <div class="form-row"><input id="a-image" placeholder="Link Gambar (URL)"></div>
+        <div class="form-row"><select id="a-category"><option value="umum">Umum</option><option value="nasional">Nasional</option><option value="teknologi">Teknologi</option><option value="hiburan">Hiburan</option><option value="ekonomi">Ekonomi</option></select></div>
+        <div class="form-row"><textarea id="a-content" rows="6" placeholder="Isi lengkap artikel"></textarea></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end"><button id="saveArticle" class="btn">Simpan</button><button id="closeAdmin" style="padding:10px;border-radius:8px;background:#eee;border:none">Tutup</button></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // --- CONFIG ---
+  const NEWS_API_KEY = "7573e70ff9ed491ea39ce0bb7cd3ace3";
+  const BASE_TOP = (cat)=> `https://newsapi.org/v2/top-headlines?country=id&pageSize=20${cat && cat!=='all'? '&category='+cat : ''}&apiKey=${NEWS_API_KEY}`;
+
+  // local storage for admin articles
+  function loadLocalArticles(){
+    try{ return JSON.parse(localStorage.getItem('localArticles')||'[]') }catch(e){return []}
+  }
+  function saveLocalArticles(arr){ localStorage.setItem('localArticles', JSON.stringify(arr)) }
+
+  let currentArticles = []; // unified list shown
+
+  async function fetchAndRender(cat='all'){
+    // fetch API
+    let apiArticles = [];
+    try{
+      const res = await fetch(BASE_TOP(cat));
+      const json = await res.json();
+      if(json && json.articles) apiArticles = json.articles.map(a=>({
+        sourceName: a.source?.name || '', title: a.title, description: a.description, content: a.content||a.description, image: a.urlToImage, url: a.url, publishedAt: a.publishedAt, category: cat==='all'? 'umum': cat
+      }));
+    }catch(e){console.warn('NewsAPI error',e)}
+
+    const local = loadLocalArticles().filter(a=> cat==='all' || a.category===cat);
+
+    currentArticles = [...local, ...apiArticles];
+    renderSlider(currentArticles.slice(0,5));
+    renderLatest(currentArticles.slice(0,4));
+    renderList(currentArticles);
+    renderTrending(currentArticles.slice(0,6).map(x=>x.title));
+  }
+
+  // render helpers
+  function renderSlider(arr){
+    const root = document.getElementById('slider'); root.innerHTML='';
+    arr.forEach((it,i)=>{
+      const div = document.createElement('div'); div.className='slide'+(i===0? ' active':'');
+      div.innerHTML = `<img src="${it.image||'https://via.placeholder.com/1200x600?text=No+Image'}"><div class="caption">${it.title}</div>`;
+      div.addEventListener('click', ()=> openArticle(it));
+      root.appendChild(div);
+    });
+    startSlider();
+  }
+
+  let sliderIdx=0, sliderTimer=null;
+  function startSlider(){
+    const slides = document.querySelectorAll('.slide');
+    if(!slides.length) return;
+    slides.forEach((s,i)=> s.style.opacity = i===0? '1':'0');
+    if(sliderTimer) clearInterval(sliderTimer);
+    sliderTimer = setInterval(()=>{
+      slides[sliderIdx].style.opacity = 0;
+      sliderIdx = (sliderIdx+1)%slides.length;
+      slides[sliderIdx].style.opacity = 1;
+    },4200);
+  }
+
+  function renderLatest(arr){
+    const root = document.getElementById('latest'); root.innerHTML='';
+    arr.forEach(a=>{
+      const el = document.createElement('div'); el.className='latest-card';
+      el.innerHTML = `<img src="${a.image||'https://via.placeholder.com/600x400?text=No+Image'}"><div style="padding-top:8px;font-weight:700">${a.title}</div>`;
+      el.addEventListener('click', ()=> openArticle(a));
+      root.appendChild(el);
+    });
+  }
+
+  function renderList(arr){
+    const root = document.getElementById('news-list'); root.innerHTML='';
+    arr.forEach(a=>{
+      const item = document.createElement('div'); item.className='news-item card';
+      item.innerHTML = `<img src="${a.image||'https://via.placeholder.com/800x500?text=No+Image'}"><div><div class="meta">${a.sourceName||'Local'} · ${a.publishedAt? new Date(a.publishedAt).toLocaleString() : ''}</div><h2>${a.title}</h2><p>${a.description||''}</p></div>`;
+      item.addEventListener('click', ()=> openArticle(a));
+      root.appendChild(item);
+    });
+  }
+
+  function renderTrending(list){
+    const el = document.getElementById('trending'); el.innerHTML='';
+    list.forEach(t=>{const li=document.createElement('li'); li.textContent = t; el.appendChild(li) })
+  }
+
+  // open article detail (SPA style)
+  function openArticle(a){
+    document.getElementById('list-section').style.display='none';
+    document.getElementById('article-detail').style.display='block';
+    document.getElementById('detail-title').textContent = a.title;
+    document.getElementById('detail-meta').textContent = `${a.sourceName||'Local'} · ${a.publishedAt? new Date(a.publishedAt).toLocaleString():''}`;
+    document.getElementById('detail-img').src = a.image||'https://via.placeholder.com/1200x600?text=No+Image';
+    document.getElementById('detail-content').innerHTML = `<p>${(a.content || a.description || '')}</p><p><a href='${a.url||"#"}' target='_blank'>Baca sumber asli</a></p>`;
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+
+  document.getElementById('backToList').addEventListener('click', ()=>{
+    document.getElementById('article-detail').style.display='none';
+    document.getElementById('list-section').style.display='block';
+  });
+
+  // category nav
+  document.getElementById('main-nav').addEventListener('click', (e)=>{
+    if(e.target.tagName==='A'){
+      e.preventDefault(); const c = e.target.dataset.cat || 'all'; fetchAndRender(c);
+    }
+  });
+
+  // admin modal
+  document.getElementById('openAdmin').addEventListener('click', ()=>{ document.getElementById('admin-modal').style.display='block' });
+  document.getElementById('closeAdmin').addEventListener('click', ()=>{ document.getElementById('admin-modal').style.display='none' });
+
+  document.getElementById('saveArticle').addEventListener('click', ()=>{
+    const t = document.getElementById('a-title').value.trim();
+    if(!t) return alert('Masukkan judul');
+    const img = document.getElementById('a-image').value.trim();
+    const cat = document.getElementById('a-category').value;
+    const content = document.getElementById('a-content').value.trim();
+    const local = loadLocalArticles();
+    local.unshift({title:t, image: img, category:cat, content:content, description: content.slice(0,180), publishedAt: new Date().toISOString(), sourceName: 'Local'});
+    saveLocalArticles(local);
+    document.getElementById('admin-modal').style.display='none';
+    fetchAndRender();
+  });
+
+  // newsletter
+  document.getElementById('subBtn').addEventListener('click', ()=>{ const v=document.getElementById('email').value.trim(); if(!v) return alert('Email kosong'); alert('Terima kasih, ' + v) });
+
+  // dark mode toggle (simple)
+  (function(){ const saved = localStorage.getItem('dark'); if(saved==='1') document.documentElement.classList.add('dark');
+    // create floating dark toggle
+    const btn = document.createElement('button'); btn.textContent = localStorage.getItem('dark')==='1' ? '☀️':'🌙'; btn.style.position='fixed';btn.style.right='18px';btn.style.bottom='18px';btn.style.padding='10px 12px';btn.style.borderRadius='10px';btn.style.zIndex=9999;btn.style.border='none';btn.style.cursor='pointer'; document.body.appendChild(btn);
+    btn.addEventListener('click', ()=>{ document.documentElement.classList.toggle('dark'); const on = document.documentElement.classList.contains('dark'); localStorage.setItem('dark', on? '1':'0'); btn.textContent = on? '☀️':'🌙' });
+  })();
+
+  // initial load: merge API + local
+  // Tambahkan artikel lokal default (banjir Sumatra)
+(function(){
+  const local = loadLocalArticles();
+  const exist = local.find(a => a.title.includes("Banjir") );
+
+  if(!exist){
+    local.unshift({
+      title: "Banjir Besar Melanda Sumatra – Ribuan Warga Mengungsi",
+      image: "https://via.placeholder.com/1200x700?text=Banjir+Sumatra",
+      category: "nasional",
+      content: `Hujan deras selama tiga hari berturut-turut menyebabkan banjir besar di beberapa wilayah Sumatra. 
+      Ribuan warga terpaksa mengungsi ke lokasi yang lebih aman. Tim SAR dan relawan dikerahkan sejak dini hari 
+      untuk membantu proses evakuasi. Sejumlah akses jalan utama terputus dan aliran listrik di sebagian wilayah padam. 
+      Pemerintah daerah mengimbau masyarakat tetap waspada terhadap potensi banjir susulan.`,
+      description: "Hujan deras picu banjir besar di Sumatra, ribuan warga mengungsi dan akses jalan terputus.",
+      publishedAt: new Date().toISOString(),
+      sourceName: "Local"
+    });
+    saveLocalArticles(local);
+  }
+})();
+
+  fetchAndRender();
+  </script>
+</body>
+</html>
